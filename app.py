@@ -1,8 +1,12 @@
 import os
 from flask import Flask, render_template_string, send_from_directory
+# flask untuk membuat aplikasi web
+# render_template_string untuk merender kode HTML yang ditulis lewat file Python
+# send_from_directory untuk mengirim file seperti gambar
 
 app = Flask(__name__)
 
+# agar Flask tahu di folder mana file gambar harus dicari
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Data monitoring kapal
@@ -42,7 +46,7 @@ HTML_TEMPLATE = """
 def home():
     return render_template_string(HTML_TEMPLATE, data=DATA)
 
-# Citra hasil deteksi diambil dari file lokal (hasil_foto.jpg di folder yang sama dengan file ini)
+# Foto hasil deteksi diambil dari file lokal (hasil_foto.jpg di folder yang sama dengan file ini)
 @app.route('/hasil_foto.jpg')
 def foto():
     return send_from_directory(BASE_DIR, "hasil_foto.jpg")
