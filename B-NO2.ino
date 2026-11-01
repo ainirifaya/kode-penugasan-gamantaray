@@ -1,22 +1,18 @@
-#include <Adafruit_LiquidCrystal.h>
+#include <Adafruit_LiquidCrystal.h> // library lcd
 
-// Kontrol kecepatan motor DC: 2 push button + LCD I2C
-// UP = D2, DOWN = D3 (INPUT_PULLUP), motor lewat TIP120 di D5 (PWM)
-
-// ====== Konfigurasi ======
+// pin
 const int PIN_UP    = 2;
 const int PIN_DOWN  = 3;
-const int PIN_MOTOR = 5;      // harus pin PWM (~)
+const int PIN_MOTOR = 5;      // pin PWM (~)
+// PWM = Pulse Width Modulatiom
 
 const int MAX_LEVEL = 10;                  // level 0 - 10
 const unsigned long DEBOUNCE   = 50;       // ms
-const unsigned long HOLD_DELAY = 400;      // ms sebelum auto-repeat
+const unsigned long HOLD_DELAY = 400;      // ms sebelum diulang lagi
 const unsigned long HOLD_RATE  = 150;      // ms antar repeat saat ditahan
 
-// LCD I2C Tinkercad (MCP23008, alamat 0x20 -> parameter 0)
 Adafruit_LiquidCrystal lcd(0);
 
-// ====== State ======
 int level = 0;
 
 // Data tombol: indeks 0 = UP, indeks 1 = DOWN
@@ -26,11 +22,12 @@ unsigned long lastChange[2] = {0, 0};
 unsigned long lastRepeat[2] = {0, 0};
 bool held[2] = {false, false};
 
-// True saat tombol ditekan, atau saat ditahan lalu repeat
 bool isTriggered(int i) {
-  bool state = digitalRead(btnPin[i]);
-  unsigned long now = millis();
+  bool state = digitalRead(btnPin[i]); // tombol ditekan/ditahan atau tidak
+  unsigned long now = millis(); // mencatat waktu sejak arduino dinyalakan (milidetik)
 
+  // mengecek debounce dari button
+  // jika status tombol berubah dan jeda waktunya lebih lama dari 50ms, maka perubahannya akan disimpan
   if (state != lastState[i] && now - lastChange[i] > DEBOUNCE) {
     lastChange[i] = now;
     lastState[i] = state;
@@ -41,6 +38,7 @@ bool isTriggered(int i) {
     }
   }
 
+  // jika tombolnya ditekan lama, kecepatan motornya akan meningkat. 400ms pertama kali di tahan. 150ms untuk selanjutnya.
   if (lastState[i] == LOW) {
     unsigned long wait = held[i] ? HOLD_RATE : HOLD_DELAY;
     if (now - lastRepeat[i] >= wait) {
@@ -53,25 +51,24 @@ bool isTriggered(int i) {
 }
 
 void applyMotor() {
-  analogWrite(PIN_MOTOR, map(level, 0, MAX_LEVEL, 0, 255));
+  analogWrite(PIN_MOTOR, map(level, 0, MAX_LEVEL, 0, 255)); // mengubah level 0-10 ke 0-255
 }
 
 void updateDisplay() {
-  int pwm = map(level, 0, MAX_LEVEL, 0, 255);
+  int pwm = map(level, 0, MAX_LEVEL, 0, 255); 
 
   // Serial Monitor
   Serial.print("PWM: ");
   Serial.println(pwm);
 
   // Baris 1: nilai PWM
-  char line[17];
-  snprintf(line, sizeof(line), "PWM: %-3d        ", pwm);
-  lcd.setCursor(0, 0);
+  char line[17]; 
+  snprintf(line, sizeof(line), "PWM: %-3d        ", pwm); // %-3d diratakan ke kiri sebanyak 3 digit
+  lcd.setCursor(0, 0); // kolom pertama, baris pertama
   lcd.print(line);
 
-  // Baris 2: Dikosongkan (menghapus bar level PPPP----)
-  lcd.setCursor(0, 1);
-  lcd.print("                ");
+  lcd.setCursor(0, 1); // baris kedua
+  lcd.print("                "); // dikosongkan
 }
 
 void setup() {
@@ -81,7 +78,7 @@ void setup() {
   pinMode(PIN_DOWN, INPUT_PULLUP);
   pinMode(PIN_MOTOR, OUTPUT);
 
-  lcd.begin(16, 2);
+  lcd.begin(16, 2); // lcd 16 kolom & 2 baris
   lcd.setBacklight(1);
 
   applyMotor();
@@ -91,16 +88,18 @@ void setup() {
 void loop() {
   bool changed = false;
 
-  if (isTriggered(0) && level < MAX_LEVEL) {
+  // untuk mengecek apakah tombol up ditekan dan kecepatan motornya masih di bawah maksimal
+  if (isTriggered(0) && level < MAX_LEVEL) { 
     level++;
     changed = true;
   }
+  // untuk mengecek apakah tombol down ditekan dan kecepatan motornya masih di atas 0
   if (isTriggered(1) && level > 0) {
     level--;
     changed = true;
   }
 
-  if (changed) {
+  if (changed) { // jika ada perubahan
     applyMotor();
     updateDisplay();
   }
