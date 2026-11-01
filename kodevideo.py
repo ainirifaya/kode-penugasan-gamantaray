@@ -1,32 +1,33 @@
-import cv2
-import numpy as np
+import cv2 # untuk memproses video
+import numpy as np # untuk operasi matematika/array
 
-# ===================== PATH FILE =====================
+# video
 INPUT_VIDEO = "/home/ainirifaya/Downloads/VIDEO.mp4"
 OUTPUT_VIDEO = "hasil_video.mp4"
 
-# ===================== KONFIGURASI =====================
-TARGET_W = 640            # Lebar proses agar ringan
-ROI_TOP = 0.18            # Buang 18% bagian atas (langit/pohon)
-MIN_AREA = 80             # Luas minimum blob
-MIN_CIRCULARITY = 0.50    # Filter kebulatan
-ASPECT_RANGE = (0.6, 2.0) # Aspect ratio bounding box
-WATER_MIN = 0.50          # Min. proporsi air (biru) di sekitar blob hijau
-MAX_SLOPE = 0.30          # Maks. kemiringan garis merah-hijau (dy/dx), lebih dari ini = vertikal = background
+TARGET_W = 640            # lebar proses agar ringan
+ROI_TOP = 0.18            # hapus 18% bagian atas (langit/pohon)
+MIN_AREA = 80             # luas minimum blob
+MIN_CIRCULARITY = 0.50    # filter kebulatan
+ASPECT_RANGE = (0.6, 2.0) # aspect ratio bounding box
+WATER_MIN = 0.50          # min. proporsi air (biru) di sekitar blob hijau
+MAX_SLOPE = 0.30          # maks. kemiringan garis merah-hijau (dy/dx), lebih dari ini dianggap vertikal/background
 
-# Nilai HSV (sampling merah & hijau)
+# nilai HSV (sampling merah & hijau)
 HSV = {
     "R1_Hlo": 0,   "R1_Hhi": 10,
     "R2_Hlo": 160, "R2_Hhi": 180,
     "R_Smin": 100, "R_Vmin": 60,
-    "G_Hlo": 35,   "G_Hhi": 95,   # [DIUBAH] sebelumnya 90, supaya bola hijau tosca gelap ikut tertangkap
+    "G_Hlo": 35,   "G_Hhi": 95,   # 95 supaya bola hijau tosca gelap ikut tertangkap
     "G_Smin": 40,  "G_Vmin": 30,
     "B_Hlo": 85,   "B_Hhi": 130,  # rentang warna air kolam
     "B_Smin": 40,  "B_Vmin": 40,
 }
 
-KERNEL = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+# buat elips 5x5, nantinya untuk membersihkan noise
+KERNEL = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)) 
 
+# masking untuk menyaring piksel berdasarkan rentang warna HSV yang sudah ditentukan
 def buat_mask(hsv):
     p = HSV
     merah = cv2.bitwise_or(
@@ -37,6 +38,8 @@ def buat_mask(hsv):
     air = cv2.inRange(hsv, (p["B_Hlo"], p["B_Smin"], p["B_Vmin"]), (p["B_Hhi"], 255, 255))
     return merah, hijau, air
 
+# menghilangkan area langit/pohon
+# membersihkan titik-titik noise
 def bersihkan(mask, roi_y):
     mask[:roi_y, :] = 0
     mask = cv2.medianBlur(mask, 5)
@@ -60,8 +63,8 @@ def deteksi_bola(mask, air=None):  # air hanya dipakai untuk bola hijau
         if circ < MIN_CIRCULARITY or not (ASPECT_RANGE[0] < aspect < ASPECT_RANGE[1]):
             continue
 
-        # [DIUBAH] Bola hijau lolos jika air ada di kiri-kanan ATAU di bawahnya (bola di tepi kolam
-        # kiri-kanannya tembok/keramik, tapi bawahnya tetap air). Tembok/pohon tidak punya air di keduanya.
+        # khusus untuk bola hijau, program memeriksa area di sekitar objek (sisi kiri, kanan, dan bawahnya)
+        # Jika di sekitarnya terdapat air (warna biru), maka objek tersebut valid berada di area kolam
         if air is not None:
             H, W = air.shape
             pad = max(8, max(bw, bh))
@@ -95,6 +98,8 @@ def main():
 
     print("Memproses video... Tekan 'q' pada jendela preview untuk berhenti.")
 
+    # membaca video frame demi frame, mengubah ukuran, memberikan efek blur,
+    # mengonversinya ke ruang warna HSV, membuat masker warna, dan membersihkannya
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
@@ -111,33 +116,33 @@ def main():
         merah = deteksi_bola(m_merah)
         hijau = deteksi_bola(m_hijau, m_air)
 
-        # 1. Gambar Bounding Box Merah & Hijau
+        # gambar bounding box merah & hijau
         for lst, warna, label in ((merah, (0, 0, 255), "Merah"), (hijau, (0, 255, 0), "Hijau")):
             for x, y, bw, bh, cx, cy in lst:
                 cv2.rectangle(frame, (x, y), (x + bw, y + bh), warna, 2)
                 cv2.putText(frame, label, (x, max(y - 5, 12)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, warna, 1)
 
-        # 2. Cari bola terdekat (posisi Y paling bawah)
+        # cari bola terdekat 
         near_m = max(merah, key=lambda b: b[5]) if merah else None
-        # Hanya bola hijau yang garisnya ke bola merah horizontal (bukan vertikal/background)
+        # hanya bola hijau yang garisnya ke bola merah horizontal (bukan vertikal/background)
         hijau_sejajar = [b for b in hijau
                          if near_m and abs(b[5] - near_m[5]) <= abs(b[4] - near_m[4]) * MAX_SLOPE]
         near_h = max(hijau_sejajar, key=lambda b: b[5]) if hijau_sejajar else None
 
-        # 3. Gambar garis antara bola kanan & kiri serta titik tengahnya
+        # gambar garis antara bola kanan & kiri serta titik tengahnya
         if near_m and near_h:
-            # Garis penghubung
+            # garis penghubung
             cv2.line(frame, (near_m[4], near_m[5]), (near_h[4], near_h[5]), (255, 255, 0), 2)
             
-            # Titik tengah target
+            # titik tengah target
             target_x = (near_m[4] + near_h[4]) // 2
             target_y = (near_m[5] + near_h[5]) // 2
             cv2.circle(frame, (target_x, target_y), 6, (0, 255, 255), -1)
 
-        # Simpan ke file output video
+        # simpan ke file output video
         out.write(frame)
 
-        # Preview tampilan
+        # preview tampilan
         cv2.imshow("Hasil Deteksi Video", frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
