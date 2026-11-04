@@ -108,7 +108,7 @@ def main():
     target_h = int(height * TARGET_W / width)
     roi_y = int(target_h * ROI_TOP)
 
-    # Video Writer untuk menyimpan hasil
+    # video Writer untuk menyimpan hasil
     out = cv2.VideoWriter(OUTPUT_VIDEO, cv2.VideoWriter_fourcc(*"mp4v"), fps, (TARGET_W, target_h))
 
     # buka window trackbar
