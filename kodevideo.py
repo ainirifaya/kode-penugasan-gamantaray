@@ -2,7 +2,7 @@ import cv2 # untuk memproses video
 import numpy as np # untuk operasi matematika/array
 
 # video
-INPUT_VIDEO = "/home/ainirifaya/Downloads/VIDEO.mp4"
+INPUT_VIDEO = "/home/ainirifaya/penugasan gamantaray/VIDEO.mp4"
 OUTPUT_VIDEO = "hasil_video.mp4"
 
 TARGET_W = 640            # lebar proses agar ringan
