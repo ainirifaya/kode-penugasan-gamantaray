@@ -13,10 +13,10 @@ ASPECT_RANGE = (0.6, 2.0) # aspect ratio bounding box
 WATER_MIN = 0.50          # min. proporsi air (biru) di sekitar blob hijau
 MAX_SLOPE = 0.30          # maks. kemiringan garis merah-hijau (dy/dx), lebih dari ini dianggap vertikal/background
 
-# nilai HSV (sampling merah & hijau)
+# nilai HSV awal (sampling merah & hijau), dipakai sebagai posisi awal slider trackbar
 HSV = {
     "R1_Hlo": 0,   "R1_Hhi": 10,
-    "R2_Hlo": 160, "R2_Hhi": 180,
+    "R2_Hlo": 160, "R2_Hhi": 179,  # maksimal H di OpenCV 179 (180 sama saja hasilnya)
     "R_Smin": 100, "R_Vmin": 60,
     "G_Hlo": 35,   "G_Hhi": 95,   # 95 supaya bola hijau tosca gelap ikut tertangkap
     "G_Smin": 40,  "G_Vmin": 30,
@@ -27,9 +27,24 @@ HSV = {
 # buat elips 5x5, nantinya untuk membersihkan noise
 KERNEL = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)) 
 
-# masking untuk menyaring piksel berdasarkan rentang warna HSV yang sudah ditentukan
+# nama window yang berisi slider trackbar
+JENDELA = "Trackbar HSV"
+
+# membuat window baru berisi slider untuk tiap nilai HSV
+def buat_trackbar():
+    cv2.namedWindow(JENDELA, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(JENDELA, 420, 500)
+    for nama, nilai in HSV.items():
+        maks = 179 if "_H" in nama else 255  # H: 0-179, S dan V: 0-255
+        cv2.createTrackbar(nama, JENDELA, min(nilai, maks), maks, lambda v: None)
+
+# membaca posisi slider saat ini (dipanggil tiap frame)
+def baca_trackbar():
+    return {nama: cv2.getTrackbarPos(nama, JENDELA) for nama in HSV}
+
+# masking untuk menyaring piksel berdasarkan rentang warna HSV dari trackbar
 def buat_mask(hsv):
-    p = HSV
+    p = baca_trackbar()
     merah = cv2.bitwise_or(
         cv2.inRange(hsv, (p["R1_Hlo"], p["R_Smin"], p["R_Vmin"]), (p["R1_Hhi"], 255, 255)),
         cv2.inRange(hsv, (p["R2_Hlo"], p["R_Smin"], p["R_Vmin"]), (p["R2_Hhi"], 255, 255))
@@ -95,6 +110,9 @@ def main():
 
     # Video Writer untuk menyimpan hasil
     out = cv2.VideoWriter(OUTPUT_VIDEO, cv2.VideoWriter_fourcc(*"mp4v"), fps, (TARGET_W, target_h))
+
+    # buka window trackbar
+    buat_trackbar()
 
     print("Memproses video... Tekan 'q' pada jendela preview untuk berhenti.")
 
