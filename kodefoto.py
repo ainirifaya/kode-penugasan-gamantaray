@@ -2,7 +2,7 @@ import cv2 # untuk memproses gambar/video
 import numpy as np # untuk operasi matematika dan manipulasi array
 
 # foto
-path_foto = '/home/ainirifaya/Downloads/FOTO.jpg'
+path_foto = '/home/ainirifaya/penugasan gamantaray/FOTO.jpg'
 img = cv2.imread(path_foto)
 
 if img is None:
